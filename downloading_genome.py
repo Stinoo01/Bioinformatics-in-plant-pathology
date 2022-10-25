@@ -5,7 +5,7 @@ Entrez.email = 'A.N.Other@example.com'
 #taking data
 handle = Entrez.efetch(db='nucleotide', id = 'NZ_CP007265.1', rettype = 'fasta', retmode = 'text')
 record = SeqIO.read(handle, 'fasta')
-
+#test
 #taking results
 seq = record.seq
 seqq = str(seq)
