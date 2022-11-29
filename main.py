@@ -1,6 +1,7 @@
 #! /usr/bin/python3.10
 import subprocess as sb
 from Bio import Entrez
+import multiprocessing
 import os
 from Bio import SeqIO
 
@@ -45,10 +46,6 @@ def bwa(reference, sraFile):
         samtools_sort_out = sb.Popen(samtools_sort, stdin=bwa_mem_out.stdout, shell=True)
         samtools_sort_out.communicate()
         print("done")
-    # a = subprocess.getstatusoutput('mkdir index')
-    # b = subprocess.getstatusoutput('mv ' + reference + ' index/')
-    # c = subprocess.getstatusoutput('bwa index index/'+ reference)
-    # d = subprocess.getstatusoutput('bwa mem -t 8 index/GCF_000013925.1_ASM1392v2_genomic.fna.gz P7741_R1.fastq.gz P7741_R2.fastq.gz > output.sam')
 
 def sra(sra_numbers):
     cwd = os.getcwd()

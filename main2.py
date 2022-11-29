@@ -4,25 +4,38 @@ from Bio import Entrez
 import os
 from Bio import SeqIO
 import argparse
+import tempfile
 
 
 
 BWAI = "bwa index %s"
 BWA = "bwa mem -t %s %s %s"
 SMS = "samtools sort -@ %s -O BAM -o %s"
+FREEBAYES = "freebayes -f %s %s"
+SAMTOOLSRG = 'samtools  addreplacerg -r "@RG\tID:%s\tSM:%s" -o %s %s'
 
-def get_parser():
-	parser = argparse.ArgumentParser(description='')
-	parser.add_argument('-t', type=int, choices=range(1, os.cpu_count()))
+def options():
+    parser = argparse.ArgumentParser(prog='quantify and detect pathogens', usage='%(prog)s [options]')
+    parser.add_argument('-t','--threads', type=int, default=1, choices=range(1, os.cpu_count()))
+    parser.add_argument('-r', '--reference', type=str, required=True, help="NCBI ID for the genome to use as reference; example is NZ_CP007265.1")
+    parser.add_argument('-em', '--email', type=str, required=True, help="email address to use in NCBI downloads")
+    parser.add_argument('-s', '--species', type=str, help="species to use in NCBI downloads")
+    args = parser.parse_args()
+    return (args)
 
-	args = parser.parse_args()
-	print((args.t))
+def vcfFreebayes(genoma, bams):
+    vcf = tempfile.NamedTemporaryFile(dir= os.getcwd(), suffix=".vcf", delete=False, mode="w")
+    free_comm = FREEBAYES % (genoma, " ".join(bams))
+    print(free_comm)
+    free_comm_out = sb.Popen(free_comm, stdout=vcf, shell=True)
+    free_comm_out.communicate()
+    print("done")
 
-def download(reference):
+def download(args):
     cwd = os.getcwd()
-    Entrez.email = 'A.N.Other@example.com'
+    Entrez.email = args.email
     #taking data
-    net_handle = Entrez.efetch(db='nucleotide', id = reference, rettype = 'fasta', retmode = 'text')
+    net_handle = Entrez.efetch(db='nucleotide', id = args.reference, rettype = 'fasta', retmode = 'text')
     data = net_handle.read()
     net_handle.close()
 
@@ -31,33 +44,37 @@ def download(reference):
     out_handle = open(ref, "w")
     out_handle.write(data)
     out_handle.close()
-
-
-
     return(ref)
 
-def bwa(reference, sraFile):
+def bwa(reference, sraFile, args):
     #BWAI = "bwa index %s"
     #BWA = "bwa mem -t %s %s %s"
-
     bi = BWAI % reference
     bwa_index = sb.Popen(bi, shell=True)
     bwa_index.communicate()
+    bams = []
     for sra in sraFile:
         if sra[1]:
             sraFileName = sra[0] + "_1.fastq " + sra[0] + "_2.fastq"
         else:
             sraFileName = sra[0] + ".fastq "
-        bwa_mem = BWA % ("10", reference, sraFileName)
-        samtools_sort = SMS % (10, sra[0] + ".sorted.bam")
+        bwa_mem = BWA % (str(args.threads), reference, sraFileName)
+        print(bwa_mem)
+        samout = sra[0] + ".sorted.bam"
+        samoutrg = sra[0] + ".rg.sorted.bam"
+        samtools_sort = SMS % (str(args.threads), samout)
+        print(samtools_sort)
         bwa_mem_out = sb.Popen(bwa_mem, stdout=sb.PIPE , shell=True)
         samtools_sort_out = sb.Popen(samtools_sort, stdin=bwa_mem_out.stdout, shell=True)
         samtools_sort_out.communicate()
+        samtoosls_rg_com = SAMTOOLSRG % (sra[0], sra[0], samoutrg, samout)
+        print(samtoosls_rg_com)
+        samtoosls_rg_com_out= sb.Popen(samtoosls_rg_com, shell=True)
+
+        samtoosls_rg_com_out.communicate()
         print("done")
-    # a = subprocess.getstatusoutput('mkdir index')
-    # b = subprocess.getstatusoutput('mv ' + reference + ' index/')
-    # c = subprocess.getstatusoutput('bwa index index/'+ reference)
-    # d = subprocess.getstatusoutput('bwa mem -t 8 index/GCF_000013925.1_ASM1392v2_genomic.fna.gz P7741_R1.fastq.gz P7741_R2.fastq.gz > output.sam')
+        bams.append(samoutrg)
+    return(bams)
 
 def sra(sra_numbers):
     cwd = os.getcwd()
@@ -87,9 +104,11 @@ def sra(sra_numbers):
     return(pe_sra)
 
 def main():
+    args = options()
     pe_sra = sra(["SRR21936789","SRR21936788"])
-    reference = download("NZ_CP007265.1")
-    bwa(reference, pe_sra)
+    reference = download(args)
+    bams = bwa(reference, pe_sra, args)
+    vcfFreebayes(reference, bams)
 
 if __name__ == '__main__':
     main()
