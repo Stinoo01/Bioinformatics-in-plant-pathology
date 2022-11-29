@@ -23,6 +23,34 @@ def options():
     args = parser.parse_args()
     return (args)
 
+def vcfScan(vcf_file):
+
+    nfields = 9
+    dict_depth = {}
+    index_sample = []
+    with open(vcf_file, "r") as infile:
+        for line in infile:
+            if not line.startswith("##"):
+                el = line.strip().split("\t")
+                if line.startswith("#"):
+                    while nfields < len(el):
+                        a = el[nfields]
+                        dict_depth[a] = []
+                        index_sample.append((a,nfields))
+                        nfields += 1
+
+                if not line.startswith("#"):
+                    for sample in index_sample:
+                        info = el[sample[1]]
+                        dict_depth[sample[0]] = dict_depth[sample[0]] + [info]
+                print("done")
+
+                    #ntotal = len(el) - nfix
+
+
+
+
+
 def vcfFreebayes(genoma, bams):
     vcf = tempfile.NamedTemporaryFile(dir= os.getcwd(), suffix=".vcf", delete=False, mode="w")
     free_comm = FREEBAYES % (genoma, " ".join(bams))
@@ -30,6 +58,7 @@ def vcfFreebayes(genoma, bams):
     free_comm_out = sb.Popen(free_comm, stdout=vcf, shell=True)
     free_comm_out.communicate()
     print("done")
+    return (vcf.name)
 
 def download(args):
     cwd = os.getcwd()
@@ -70,7 +99,6 @@ def bwa(reference, sraFile, args):
         samtoosls_rg_com = SAMTOOLSRG % (sra[0], sra[0], samoutrg, samout)
         print(samtoosls_rg_com)
         samtoosls_rg_com_out= sb.Popen(samtoosls_rg_com, shell=True)
-
         samtoosls_rg_com_out.communicate()
         print("done")
         bams.append(samoutrg)
@@ -104,11 +132,12 @@ def sra(sra_numbers):
     return(pe_sra)
 
 def main():
-    args = options()
-    pe_sra = sra(["SRR21936789","SRR21936788"])
-    reference = download(args)
-    bams = bwa(reference, pe_sra, args)
-    vcfFreebayes(reference, bams)
+    #args = options()
+    #pe_sra = sra(["SRR21936789","SRR21936788"])
+    #reference = download(args)
+    #bams = bwa(reference, pe_sra, args)
+    #vcf_file=vcfFreebayes(reference, bams)
+    vcfScan("/home/lfaino/Bioinformatics-in-plant-pathology/tmpv6c3kg3x.vcf")
 
 if __name__ == '__main__':
     main()
