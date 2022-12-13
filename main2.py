@@ -28,6 +28,8 @@ def vcfScan(vcf_file):
     nfields = 9
     dict_depth = {}
     index_sample = []
+    dinfo = {"AD":[],"RO":[],"AO":[]}
+    list_to_remove = []
     with open(vcf_file, "r") as infile:
         for line in infile:
             if not line.startswith("##"):
@@ -38,12 +40,18 @@ def vcfScan(vcf_file):
                         dict_depth[a] = []
                         index_sample.append((a,nfields))
                         nfields += 1
-
                 if not line.startswith("#"):
                     for sample in index_sample:
-                        info = el[sample[1]]
-                        dict_depth[sample[0]] = dict_depth[sample[0]] + [info]
-                print("done")
+                        pos = el[0] + "_" + el[1]
+                        info = el[sample[1]].split(":")
+                        if len(info) == 8:
+                            dict_pos = {}
+                            dict_pos[pos] = [el[3], el[4], info[2], info[3], info[5]]
+                            dict_depth[sample[0]] = dict_depth[sample[0]] + [dict_pos]
+                        else:
+                            list_to_remove.append(pos)
+
+        print("done")
 
                     #ntotal = len(el) - nfix
 
