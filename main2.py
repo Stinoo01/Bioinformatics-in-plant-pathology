@@ -2,10 +2,13 @@
 import subprocess as sb
 from Bio import Entrez
 import os
+import ast
+import numpy as np
 from Bio import SeqIO
+import pandas as pd
 import argparse
 import tempfile
-
+import statistics
 
 
 BWAI = "bwa index %s"
@@ -51,7 +54,22 @@ def vcfScan(vcf_file):
                         else:
                             list_to_remove.append(pos)
 
-        print("done")
+    for sample in index_sample:
+        # list_cov = []
+        dict_single_sample= dict_depth[sample[0]]
+        list_cov = [sum(list(map(int, (elm[key][2]).split(",")))) for elm in dict_single_sample for key in elm ]
+        # for key in dict_single_sample:
+        #     list_cov.append(int(dict_single_sample[key][3]) + int(dict_single_sample[key][4]))
+        mode = statistics.mode(list_cov)
+        std = np.std(list_cov)
+        sample_size = len(list_cov)
+        conf_int = 1.96*(std/np.sqrt(sample_size))
+        max_mode = mode + conf_int
+        min_mode = mode - conf_int
+        if min_mode < 0:
+            min_mode == 0
+
+        print(mode)
 
                     #ntotal = len(el) - nfix
 
@@ -139,13 +157,49 @@ def sra(sra_numbers):
 
     return(pe_sra)
 
+def vcfScanPanda(file):
+    with open(file, "r") as infile:
+        for line in infile:
+            if not line.startswith("##"):
+                header = line
+                break
+    headers = header.rstrip().split("\t")
+
+
+    df = pd.read_csv(file, sep="\t", comment="#", header=None, nrows=3)
+    cols = len(df.axes[1])
+    col_to_keep = [0,1,3,4]
+    col_extra = []
+    count = 9
+    while count < cols:
+        col_to_keep.append(count)
+        col_extra.append(count)
+        count += 1
+    col_name = []
+    for index in col_to_keep:
+        col_name.append(headers[index])
+
+    df = pd.read_csv(file, sep="\t", comment="#", header=None, usecols = col_to_keep, names = col_name)
+    for elm in col_extra:
+        df[elm] = df[elm].str.split(":", expand=False)
+
+    df["newcol"] = df["#CHROM"].astype(str) + "_" + df["POS"].astype(str)
+    df.columns = df["newcol"]
+    df.drop("newcol", inplace=True, axis=1)
+    #df.drop("newcol", inplace=True)
+    #df['newcol'] =  "|".join([df[0],df[1] ]) # paste(df[0].str.cat(str(df[1]))
+    dictA = df.to_dict()
+
+    print(df.iloc[9])
+
+
 def main():
     #args = options()
     #pe_sra = sra(["SRR21936789","SRR21936788"])
     #reference = download(args)
     #bams = bwa(reference, pe_sra, args)
     #vcf_file=vcfFreebayes(reference, bams)
-    vcfScan("/home/lfaino/Bioinformatics-in-plant-pathology/tmpv6c3kg3x.vcf")
-
+    # vcfScan("/home/lfaino/Bioinformatics-in-plant-pathology/tmpv6c3kg3x.vcf")
+    vcfScanPanda("/home/lfaino/Bioinformatics-in-plant-pathology/tmpv6c3kg3x.vcf")
 if __name__ == '__main__':
     main()
